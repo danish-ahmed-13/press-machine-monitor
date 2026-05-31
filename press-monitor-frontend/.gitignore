@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+frontend/dist/
+
+# python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# ml
+ml/*.pt
+data/raw_videos/
+
+# db
+backend/*.db
+
+# os
+.DS_Store

@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Database
+backend/db/press_monitor.db
+
+# Node
+press-monitor-frontend/node_modules/
+press-monitor-frontend/dist/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
