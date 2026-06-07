@@ -45,4 +45,16 @@ export async function fetchAllViolations() {
 export async function fetchAllSessions() {
     const res = await fetch(`${BASE}/api/sessions`);
     return res.json();
-}   
+}
+
+export async function uploadVideo(sessionId, file) {
+    const formData = new FormData();
+    formData.append("session_id", sessionId);
+    formData.append("video", file);
+
+    const res = await fetch(`${BASE}/api/upload`, {
+        method: "POST",
+        body: formData
+    });
+    return res.json();
+}

@@ -1,17 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import StatCard from "../components/StatCard";
 import ProductivityChart from "../components/ProductivityChart";
 import ViolationsTable from "../components/ViolationsTable";
-import { fetchMetrics, fetchViolations, startSession, stopSession } from "../api";
+import { fetchMetrics, fetchViolations, startSession, stopSession, uploadVideo } from "../api";
 
 export default function Dashboard() {
   const [sessionId, setSessionId] = useState(() => {
     const saved = localStorage.getItem("session_id");
     return saved ? parseInt(saved) : null;
   });
-  const [metrics, setMetrics]       = useState(null);
+  const [metrics, setMetrics] = useState(null);
   const [violations, setViolations] = useState([]);
   const [sessionTime, setSessionTime] = useState("--");
+  const [uploading, setUploading] = useState(false);
+  const [lastResult, setLastResult] = useState(null);
+  const fileRef = useRef(null);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -47,6 +50,7 @@ export default function Dashboard() {
     const data = await startSession("Ahmed", "Line A");
     setSessionId(data.session_id);
     localStorage.setItem("session_id", data.session_id);
+    setLastResult(null);
   };
 
   const handleStopSession = async () => {
@@ -55,7 +59,25 @@ export default function Dashboard() {
     setMetrics(null);
     setViolations([]);
     setSessionTime("--");
+    setLastResult(null);
     localStorage.removeItem("session_id");
+  };
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !sessionId) return;
+
+    setUploading(true);
+    setLastResult(null);
+    try {
+      const result = await uploadVideo(sessionId, file);
+      setLastResult(result);
+    } catch (err) {
+      console.error("Upload error:", err);
+    } finally {
+      setUploading(false);
+      fileRef.current.value = "";
+    }
   };
 
   const activeViolations = violations.filter(v => !v.resolved).length;
@@ -118,8 +140,8 @@ export default function Dashboard() {
             />
             <StatCard
               label="Machine utilization"
-              value={metrics ? `${Math.min(100, Math.round((metrics.total_cycles / 320) * 100))}%` : "—"}
-              sub="Target: 320 cycles"
+              value={metrics ? `${Math.min(100, Math.round((metrics.total_cycles / 7) * 100))}%` : "—"}
+              sub="Target: 7 cycles"
               subColor="text-gray-400"
             />
             <StatCard
@@ -137,7 +159,61 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* chart — now full width */}
+          {/* upload video panel */}
+          <div className="bg-white border border-gray-100 rounded-xl p-4 flex items-center gap-4 flex-shrink-0">
+            <div className="flex-1">
+              <p className="text-xs font-medium text-gray-700 mb-0.5">Analyze video</p>
+              <p className="text-xs text-gray-400">
+                {uploading
+                  ? "Running YOLO inference — detecting press cycles and PPE compliance..."
+                  : "Upload a press machine video to detect cycles and PPE compliance"}
+              </p>   
+            </div>
+            {lastResult && (
+              <div className="flex items-center gap-3 text-xs">
+                <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium">
+                  {lastResult.press_count} presses detected
+                </span>
+                <span className={`px-2.5 py-1 rounded-full font-medium ${lastResult.violations.length > 0
+                    ? "bg-red-50 text-red-700"
+                    : "bg-emerald-50 text-emerald-700"
+                  }`}>
+                  {lastResult.violations.length > 0
+                    ? `${lastResult.violations.length} PPE violations`
+                    : "PPE all clear"}
+                </span>
+              </div>
+            )}
+
+            <input
+              ref={fileRef}
+              type="file"
+              accept="video/*"
+              onChange={handleUpload}
+              className="hidden"
+            />
+            <button
+              onClick={() => !uploading && fileRef.current.click()}
+              disabled={uploading}
+              className={`text-xs px-4 py-2 rounded-lg transition-colors flex-shrink-0 ${
+                uploading
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+            >
+              {uploading ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                  </svg>
+                  Processing...
+                </span>
+              ) : "Upload video"}
+            </button>
+          </div>
+
+          {/* chart */}
           <div className="flex-1 bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
             <ProductivityChart data={metrics?.hourly_cycles?.map(h => ({
               hour: h.hour,
@@ -149,20 +225,20 @@ export default function Dashboard() {
           <div className="grid grid-cols-5 gap-3" style={{ height: "180px" }}>
             <div className="col-span-3 bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col">
               <ViolationsTable violations={violations.map(v => ({
-                id:         v.id,
-                time:       v.detected_at.slice(11, 16),
-                type:       v.violation_type.replace(/_/g, " "),
-                status:     v.resolved ? "resolved" : "active",
+                id: v.id,
+                time: v.detected_at.slice(11, 16),
+                type: v.violation_type.replace(/_/g, " "),
+                status: v.resolved ? "resolved" : "active",
                 operatorId: v.operator_name
               }))} compact />
             </div>
             <div className="col-span-2 bg-white border border-gray-100 rounded-xl p-4">
               <p className="text-xs font-medium text-gray-500 mb-3">Session info</p>
               {[
-                ["Session ID",   `#${sessionId}`],
-                ["Machine",      metrics?.machine_line ?? "—"],
+                ["Session ID", `#${sessionId}`],
+                ["Machine", metrics?.machine_line ?? "—"],
                 ["Total cycles", metrics?.total_cycles ?? "—"],
-                ["Started at",   metrics?.started_at?.slice(11, 16) ?? "—"],
+                ["Started at", metrics?.started_at?.slice(11, 16) ?? "—"],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0">
                   <span className="text-xs text-gray-400">{k}</span>
