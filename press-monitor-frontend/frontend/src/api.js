@@ -36,3 +36,13 @@ export async function recordPress(sessionId) {
     });
     return res.json();
 }
+
+export async function fetchAllViolations() {
+    const res = await fetch(`${BASE}/api/violations/all`);
+    return res.json();
+}
+
+export async function fetchAllSessions() {
+    const res = await fetch(`${BASE}/api/sessions`);
+    return res.json();
+}   

@@ -72,3 +72,33 @@ def record_press():
         "message": "Press recorded",
         "total_cycles": total
     }), 201
+
+@metrics_bp.route("/api/sessions", methods=["GET"])
+def get_all_sessions():
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT
+            s.id,
+            s.machine_line,
+            s.started_at,
+            s.ended_at,
+            COUNT(DISTINCT pe.id) as total_cycles,
+            o.name as operator_name,
+            COUNT(DISTINCT v.id) as violation_count
+        FROM sessions s
+        JOIN operators o ON s.operator_id = o.id
+        LEFT JOIN ppe_violations v ON v.session_id = s.id
+        LEFT JOIN press_events pe ON pe.session_id = s.id
+        GROUP BY s.id
+        ORDER BY s.started_at DESC
+    """).fetchall()
+    conn.close()
+    return jsonify([{
+        "id":              r["id"],
+        "machine_line":    r["machine_line"],
+        "started_at":      r["started_at"],
+        "ended_at":        r["ended_at"],
+        "total_cycles":    r["total_cycles"],
+        "operator_name":   r["operator_name"],
+        "violation_count": r["violation_count"]
+    } for r in rows])

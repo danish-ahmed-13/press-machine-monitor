@@ -6,6 +6,7 @@ venv/
 
 # Database
 backend/db/press_monitor.db
+backend/*.mp4
 
 # Node
 press-monitor-frontend/node_modules/

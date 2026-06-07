@@ -67,3 +67,30 @@ def resolve_violation(violation_id):
     conn.close()
 
     return jsonify({"message": "Violation resolved"})
+
+@violations_bp.route("/api/violations/all", methods=["GET"])
+def get_all_violations():
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT
+            v.id,
+            v.violation_type,
+            v.detected_at,
+            v.resolved,
+            o.name as operator_name,
+            s.id as session_id
+        FROM ppe_violations v
+        JOIN sessions s ON v.session_id = s.id
+        JOIN operators o ON s.operator_id = o.id
+        ORDER BY v.detected_at DESC
+    """).fetchall()
+    conn.close()
+    return jsonify([{
+        "id":             r["id"],
+        "violation_type": r["violation_type"],
+        "detected_at":    r["detected_at"],
+        "resolved":       bool(r["resolved"]),
+        "operator_name":  r["operator_name"],
+        "session_id":     r["session_id"]
+    } for r in rows])
+

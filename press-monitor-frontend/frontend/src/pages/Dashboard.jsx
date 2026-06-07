@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import StatCard from "../components/StatCard";
-import LiveFeed from "../components/LiveFeed";
 import ProductivityChart from "../components/ProductivityChart";
 import ViolationsTable from "../components/ViolationsTable";
 import { fetchMetrics, fetchViolations, startSession, stopSession } from "../api";
@@ -10,14 +9,12 @@ export default function Dashboard() {
     const saved = localStorage.getItem("session_id");
     return saved ? parseInt(saved) : null;
   });
-  const [metrics, setMetrics]         = useState(null);
-  const [violations, setViolations]   = useState([]);
+  const [metrics, setMetrics]       = useState(null);
+  const [violations, setViolations] = useState([]);
   const [sessionTime, setSessionTime] = useState("--");
 
-  // fetch metrics + violations every 5 seconds when session is active
   useEffect(() => {
     if (!sessionId) return;
-
     const load = async () => {
       try {
         const m = await fetchMetrics(sessionId);
@@ -28,24 +25,23 @@ export default function Dashboard() {
         console.error("Fetch error:", err);
       }
     };
-
     load();
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
   }, [sessionId]);
 
-  // session timer
   useEffect(() => {
-    if (!sessionId || !metrics?.started_at) return;
-    const startTime = new Date(metrics.started_at).getTime();
+    if (!sessionId) return;
+    const start = Date.now();
+    setSessionTime("0m 0s");
     const timer = setInterval(() => {
-      const diff = Date.now() - startTime;
+      const diff = Date.now() - start;
       const mins = Math.floor(diff / 60000);
       const secs = Math.floor((diff % 60000) / 1000);
       setSessionTime(`${mins}m ${secs}s`);
     }, 1000);
     return () => clearInterval(timer);
-  }, [sessionId, metrics?.started_at]);
+  }, [sessionId]);
 
   const handleStartSession = async () => {
     const data = await startSession("Ahmed", "Line A");
@@ -111,6 +107,8 @@ export default function Dashboard() {
         </div>
       ) : (
         <div className="flex-1 overflow-auto p-4 flex flex-col gap-3">
+
+          {/* stat cards */}
           <div className="grid grid-cols-4 gap-3">
             <StatCard
               label="Press cycles"
@@ -139,19 +137,16 @@ export default function Dashboard() {
             />
           </div>
 
-          <div className="flex-1 grid grid-cols-5 gap-3" style={{ minHeight: 0 }}>
-            <div className="col-span-3 bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col">
-              <LiveFeed />
-            </div>
-            <div className="col-span-2 bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col">
-              <ProductivityChart data={metrics?.hourly_cycles?.map(h => ({
-                hour: h.hour,
-                cycles: h.cycles
-              })) ?? []} />
-            </div>
+          {/* chart — now full width */}
+          <div className="flex-1 bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
+            <ProductivityChart data={metrics?.hourly_cycles?.map(h => ({
+              hour: h.hour,
+              cycles: h.cycles
+            })) ?? []} />
           </div>
 
-          <div className="grid grid-cols-5 gap-3" style={{ height: "160px" }}>
+          {/* violations + session info */}
+          <div className="grid grid-cols-5 gap-3" style={{ height: "180px" }}>
             <div className="col-span-3 bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col">
               <ViolationsTable violations={violations.map(v => ({
                 id:         v.id,
@@ -176,6 +171,7 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+
         </div>
       )}
     </div>
