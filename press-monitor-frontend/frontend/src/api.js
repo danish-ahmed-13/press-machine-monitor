@@ -58,3 +58,18 @@ export async function uploadVideo(sessionId, file) {
     });
     return res.json();
 }
+
+export async function uploadForStream(file) {
+    const formData = new FormData();
+    formData.append("video", file);
+
+    const res = await fetch(`${BASE}/api/stream`, {
+        method: "POST",
+        body: formData
+    });
+    return res.json();
+}
+
+export function getStreamUrl(videoPath, sessionId) {
+    return `${BASE}/api/stream/feed?video_path=${encodeURIComponent(videoPath)}&session_id=${sessionId}`;
+}
